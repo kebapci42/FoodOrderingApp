@@ -11,7 +11,7 @@ public class Main {
 
         // 2. Import Data from CSV
         System.out.println("Importing data from CSV...");
-        importDataFromCSV("../data.csv"); // Assuming data.csv is in project root, and we run from src
+        importDataFromCSV("data.csv"); // Assuming data.csv is in project root, and we run from root
 
         // 3. Retrieve and Display Data from Database
         System.out.println("\n--- Restaurants from Database ---");
