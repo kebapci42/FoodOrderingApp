@@ -1,2 +1,17 @@
-# Output
-out/
+# Maven
+target/
+dependency-reduced-pom.xml
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+
+# Proposal
+ordering_app_proposal.txt

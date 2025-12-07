@@ -1,0 +1,52 @@
+# Food Ordering Application - Project Proposal
+
+## Project Description
+
+The Food Ordering Application is a desktop-based Java application that 
+enables customers to browse restaurants, view their menus, search for 
+specific food items, and filter offerings by category or price. 
+The application connects to a local SQLite database that stores 
+information about restaurants, their menus, and food items with 
+details such as name, category, and price. The system demonstrates 
+core object-oriented design principles through a hierarchical class 
+structure where different food types (drinks, soups, main courses, salads)
+inherit from a common abstract `Food` base class. Users interact with 
+the application through a Swing-based graphical user interface that 
+allows them to perform searches across all restaurants, sort results 
+by price, and view detailed menu information in an organized, 
+user-friendly manner.
+
+## Java Features and Concepts
+
+**Object-Oriented Programming & Design**
+- Abstract classes and inheritance (Food hierarchy with subclasses: Drink, Soup, MainCourse, Salad)
+- Encapsulation (private fields with public getters/setters)
+- Polymorphism (method overriding in Food subclasses)
+- Composition (Restaurant contains Menu, Menu contains Food objects)
+
+**Collections Framework**
+- `List<Food>` for storing menu items
+- `List<Restaurant>` for managing all restaurants
+- `HashMap` or `TreeMap` for optimized data lookups where beneficial
+- Iterators for traversing collections during search operations
+
+**Database & JDBC**
+- SQLite database connection using JDBC driver
+- SQL queries to retrieve restaurant and menu data
+- PreparedStatement for secure and efficient queries
+- ResultSet mapping to Java objects
+
+**GUI Development with Swing**
+- JFrame for the main application window
+- JPanel for organizing UI components
+- JTable or JList for displaying restaurants and menu items
+- JTextField for search functionality
+- JComboBox for filtering by food type
+- JButton for user interactions
+- Layout managers (BorderLayout, GridLayout) for component arrangement
+- Event listeners (ActionListener) for handling user input
+
+**Additional Concepts**
+- File I/O for database file management (.db file)
+- Exception handling (try-catch blocks for JDBC operations)
+- String manipulation and comparison for search operations
