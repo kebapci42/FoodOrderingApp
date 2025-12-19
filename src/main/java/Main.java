@@ -1,3 +1,4 @@
+import javax.swing.*;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -16,6 +17,10 @@ public class Main {
         // 3. Retrieve and Display Data from Database
         System.out.println("\n--- Restaurants from Database ---");
         List<Restaurant> restaurants = DatabaseManager.getAllRestaurants();
+
+        SwingUtilities.invokeLater(() -> {
+            new FoodOrderingGUI().setVisible(true);
+        });
         
         if (restaurants.isEmpty()) {
             System.out.println("No restaurants found in database.");
