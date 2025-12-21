@@ -1,5 +1,6 @@
 import javax.swing.*;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
 
 public class FoodOrderingGUI extends JFrame {
@@ -18,18 +19,23 @@ public class FoodOrderingGUI extends JFrame {
     private JList<Food> foodList;
     private DefaultListModel<Food> foodModel;
 
-    private JTextField foodNameField;
-    private JTextField foodPriceField;
-    private JComboBox<String> foodTypeBox;
+    private JList<String> basketList;
+    private DefaultListModel<String> basketModel;
+    private List<BasketItem> basketItems;
+
+    private JTextField quantityField;
+    private JLabel totalLabel;
 
     public FoodOrderingGUI() {
-        setTitle("🍽 Food Ordering App");
-        setSize(1000, 600);
+        setTitle("Food Ordering App");
+        setSize(1200, 600);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
         getContentPane().setBackground(BG_COLOR);
         setLayout(new BorderLayout(12, 12));
+
+        basketItems = new ArrayList<>();
 
         initUI();
         loadRestaurants();
@@ -67,44 +73,76 @@ public class FoodOrderingGUI extends JFrame {
         JPanel centerCard = createCard(new JScrollPane(foodList));
         add(centerCard, BorderLayout.CENTER);
 
-        /* ===== ADD FOOD ===== */
-        JPanel bottomCard = new JPanel(new GridBagLayout());
+        /* ===== BASKET ===== */
+        basketModel = new DefaultListModel<>();
+        basketList = new JList<>(basketModel);
+        styleList(basketList, new Color(231, 76, 60));
+
+        JPanel basketPanel = new JPanel(new BorderLayout());
+        basketPanel.setBackground(CARD_COLOR);
+        basketPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        JLabel basketTitle = new JLabel("🛒 Basket");
+        basketTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        basketTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+        basketPanel.add(basketTitle, BorderLayout.NORTH);
+        basketPanel.add(new JScrollPane(basketList), BorderLayout.CENTER);
+
+        totalLabel = new JLabel("Total: $0.00");
+        totalLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        totalLabel.setForeground(ACCENT);
+        totalLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+        basketPanel.add(totalLabel, BorderLayout.SOUTH);
+
+        JPanel rightCard = createCard(basketPanel);
+        rightCard.setPreferredSize(new Dimension(300, 0));
+        add(rightCard, BorderLayout.EAST);
+
+        /* ===== ADD TO BASKET ===== */
+        JPanel bottomCard = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
         bottomCard.setBackground(CARD_COLOR);
-        bottomCard.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        bottomCard.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(6, 6, 6, 6);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        JLabel qtyLabel = new JLabel("Quantity:");
+        qtyLabel.setFont(NORMAL_FONT);
 
-        foodNameField = new JTextField();
-        foodPriceField = new JTextField();
-        foodTypeBox = new JComboBox<>(new String[]{"Drink", "Soup", "Main Course", "Salad"});
+        quantityField = new JTextField("1", 5);
+        styleField(quantityField);
 
-        styleField(foodNameField);
-        styleField(foodPriceField);
-        foodTypeBox.setFont(NORMAL_FONT);
+        JButton addToBasketButton = new JButton("➕ Add to Basket");
+        addToBasketButton.setBackground(ACCENT);
+        addToBasketButton.setForeground(Color.WHITE);
+        addToBasketButton.setFocusPainted(false);
+        addToBasketButton.setFont(NORMAL_FONT);
+        addToBasketButton.addActionListener(e -> addToBasket());
 
-        JButton addFoodButton = new JButton("➕ Add Food");
-        addFoodButton.setBackground(PRIMARY);
-        addFoodButton.setForeground(Color.WHITE);
-        addFoodButton.setFocusPainted(false);
-        addFoodButton.addActionListener(e -> addFood());
+        JButton clearBasketButton = new JButton("🗑 Clear Basket");
+        clearBasketButton.setBackground(new Color(231, 76, 60));
+        clearBasketButton.setForeground(Color.WHITE);
+        clearBasketButton.setFocusPainted(false);
+        clearBasketButton.setFont(NORMAL_FONT);
+        clearBasketButton.addActionListener(e -> clearBasket());
 
-        gbc.gridx = 0; gbc.gridy = 0;
-        bottomCard.add(new JLabel("Food Name"), gbc);
-        gbc.gridx = 1;
-        bottomCard.add(new JLabel("Type"), gbc);
-        gbc.gridx = 2;
-        bottomCard.add(new JLabel("Price"), gbc);
+        JButton deleteFoodButton = new JButton("❌ Delete Food");
+        deleteFoodButton.setBackground(new Color(192, 57, 43));
+        deleteFoodButton.setForeground(Color.WHITE);
+        deleteFoodButton.setFocusPainted(false);
+        deleteFoodButton.setFont(NORMAL_FONT);
+        deleteFoodButton.addActionListener(e -> deleteFood());
 
-        gbc.gridy = 1; gbc.gridx = 0;
-        bottomCard.add(foodNameField, gbc);
-        gbc.gridx = 1;
-        bottomCard.add(foodTypeBox, gbc);
-        gbc.gridx = 2;
-        bottomCard.add(foodPriceField, gbc);
-        gbc.gridx = 3;
-        bottomCard.add(addFoodButton, gbc);
+        JButton deleteRestaurantButton = new JButton("❌ Delete Restaurant");
+        deleteRestaurantButton.setBackground(new Color(142, 68, 173));
+        deleteRestaurantButton.setForeground(Color.WHITE);
+        deleteRestaurantButton.setFocusPainted(false);
+        deleteRestaurantButton.setFont(NORMAL_FONT);
+        deleteRestaurantButton.addActionListener(e -> deleteRestaurant());
+
+        bottomCard.add(qtyLabel);
+        bottomCard.add(quantityField);
+        bottomCard.add(addToBasketButton);
+        bottomCard.add(clearBasketButton);
+        bottomCard.add(deleteFoodButton);
+        bottomCard.add(deleteRestaurantButton);
 
         add(bottomCard, BorderLayout.SOUTH);
     }
@@ -114,8 +152,7 @@ public class FoodOrderingGUI extends JFrame {
         panel.setBackground(CARD_COLOR);
         panel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createEmptyBorder(10, 10, 10, 10),
-                BorderFactory.createLineBorder(new Color(230, 230, 230))
-        ));
+                BorderFactory.createLineBorder(new Color(230, 230, 230))));
         panel.add(content, BorderLayout.CENTER);
         return panel;
     }
@@ -132,8 +169,7 @@ public class FoodOrderingGUI extends JFrame {
         field.setFont(NORMAL_FONT);
         field.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(220, 220, 220)),
-                BorderFactory.createEmptyBorder(6, 8, 6, 8)
-        ));
+                BorderFactory.createEmptyBorder(6, 8, 6, 8)));
     }
 
     private void loadRestaurants() {
@@ -147,36 +183,112 @@ public class FoodOrderingGUI extends JFrame {
     private void loadMenuForSelectedRestaurant() {
         foodModel.clear();
         Restaurant selected = restaurantList.getSelectedValue();
-        if (selected == null) return;
+        if (selected == null)
+            return;
 
         for (Food food : selected.getMenu().getFoodItems()) {
             foodModel.addElement(food);
         }
     }
 
-    private void addFood() {
-        Restaurant selected = restaurantList.getSelectedValue();
-        if (selected == null) {
-            JOptionPane.showMessageDialog(this, "Select a restaurant first!");
+    private void addToBasket() {
+        Food selectedFood = foodList.getSelectedValue();
+        if (selectedFood == null) {
+            JOptionPane.showMessageDialog(this, "Please select a food item first!");
             return;
         }
 
         try {
-            double price = Double.parseDouble(foodPriceField.getText());
-            DatabaseManager.addFood(
-                    foodNameField.getText(),
-                    (String) foodTypeBox.getSelectedItem(),
-                    price,
-                    selected.getId()
-            );
+            int quantity = Integer.parseInt(quantityField.getText());
+            if (quantity <= 0) {
+                JOptionPane.showMessageDialog(this, "Quantity must be greater than 0!");
+                return;
+            }
+
+            BasketItem item = new BasketItem(selectedFood, quantity);
+            basketItems.add(item);
+            updateBasketDisplay();
+            quantityField.setText("1");
         } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "Invalid price!");
+            JOptionPane.showMessageDialog(this, "Invalid quantity!");
+        }
+    }
+
+    private void clearBasket() {
+        basketItems.clear();
+        updateBasketDisplay();
+    }
+
+    private void updateBasketDisplay() {
+        basketModel.clear();
+        double total = 0.0;
+
+        for (BasketItem item : basketItems) {
+            basketModel.addElement(item.toString());
+            total += item.getTotalPrice();
+        }
+
+        totalLabel.setText(String.format("Total: $%.2f", total));
+    }
+
+    private void deleteFood() {
+        Food selectedFood = foodList.getSelectedValue();
+        if (selectedFood == null) {
+            JOptionPane.showMessageDialog(this, "Please select a food item to delete!");
             return;
         }
 
-        loadRestaurants();
-        restaurantList.setSelectedValue(selected, true);
-        foodNameField.setText("");
-        foodPriceField.setText("");
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Are you sure you want to delete '" + selectedFood.getName() + "'?",
+                "Confirm Delete",
+                JOptionPane.YES_NO_OPTION);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            DatabaseManager.deleteFood(selectedFood.getId());
+            Restaurant selectedRestaurant = restaurantList.getSelectedValue();
+            loadRestaurants();
+            if (selectedRestaurant != null) {
+                restaurantList.setSelectedValue(selectedRestaurant, true);
+            }
+        }
+    }
+
+    private void deleteRestaurant() {
+        Restaurant selectedRestaurant = restaurantList.getSelectedValue();
+        if (selectedRestaurant == null) {
+            JOptionPane.showMessageDialog(this, "Please select a restaurant to delete!");
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Are you sure you want to delete '" + selectedRestaurant.getName() + "' and all its food items?",
+                "Confirm Delete",
+                JOptionPane.YES_NO_OPTION);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            DatabaseManager.deleteRestaurant(selectedRestaurant.getId());
+            loadRestaurants();
+        }
+    }
+
+    private static class BasketItem {
+        private Food food;
+        private int quantity;
+
+        public BasketItem(Food food, int quantity) {
+            this.food = food;
+            this.quantity = quantity;
+        }
+
+        public double getTotalPrice() {
+            return food.getPrice() * quantity;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%dx %s ($%.2f)", quantity, food.getName(), getTotalPrice());
+        }
     }
 }

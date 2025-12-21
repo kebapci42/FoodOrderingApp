@@ -24,13 +24,13 @@ public class Restaurant {
     public void setName(String name) {
         this.name = name;
     }
-    
+
     public void setMenu(Menu menu) {
         this.menu = menu;
     }
 
     @Override
     public String toString() {
-        return String.format("Restaurant: %s (ID: %d)", name, id);
+        return name;
     }
 }
