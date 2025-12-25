@@ -50,6 +50,26 @@ public class DatabaseManager {
             // create new tables
             stmt.execute(sqlRestaurants);
             stmt.execute(sqlFood);
+
+            // Create orders table
+            String sqlOrders = "CREATE TABLE IF NOT EXISTS orders (\n"
+                    + " id integer PRIMARY KEY,\n"
+                    + " date text NOT NULL,\n"
+                    + " total_amount real\n"
+                    + ");";
+            stmt.execute(sqlOrders);
+
+            // Create order_items table
+            String sqlOrderItems = "CREATE TABLE IF NOT EXISTS order_items (\n"
+                    + " id integer PRIMARY KEY,\n"
+                    + " order_id integer,\n"
+                    + " food_name text,\n"
+                    + " quantity integer,\n"
+                    + " price real,\n"
+                    + " FOREIGN KEY (order_id) REFERENCES orders (id)\n"
+                    + ");";
+            stmt.execute(sqlOrderItems);
+
         } catch (SQLException e) {
             System.out.println(e.getMessage());
         }
@@ -122,18 +142,10 @@ public class DatabaseManager {
 
                 Food food = null;
                 switch (type) {
-                    case "Drink":
-                        food = new Drink(name, price);
-                        break;
-                    case "Soup":
-                        food = new Soup(name, price);
-                        break;
-                    case "Main Course":
-                        food = new MainCourse(name, price);
-                        break;
-                    case "Salad":
-                        food = new Salad(name, price);
-                        break;
+                    case "Drink" -> food = new Drink(name, price);
+                    case "Soup" -> food = new Soup(name, price);
+                    case "Main Course" -> food = new MainCourse(name, price);
+                    case "Salad" -> food = new Salad(name, price);
                 }
 
                 if (food != null) {
@@ -180,15 +192,134 @@ public class DatabaseManager {
         }
     }
 
+    // Method to place an order
+    public static void placeOrder(List<BasketItem> items, double totalAmount) {
+        String insertOrder = "INSERT INTO orders(date, total_amount) VALUES(?,?)";
+        String insertOrderItem = "INSERT INTO order_items(order_id, food_name, quantity, price) VALUES(?,?,?,?)";
+
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter
+                .ofPattern("yyyy-MM-dd HH:mm:ss");
+        String dateStr = now.format(formatter);
+
+        Connection conn = null;
+        try {
+            conn = connect();
+            conn.setAutoCommit(false); // Start transaction
+
+            // 1. Insert Order and get ID
+            int orderId = -1;
+            try (PreparedStatement pstmt = conn.prepareStatement(insertOrder, Statement.RETURN_GENERATED_KEYS)) {
+                pstmt.setString(1, dateStr);
+                pstmt.setDouble(2, totalAmount);
+                pstmt.executeUpdate();
+
+                try (ResultSet rs = pstmt.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        orderId = rs.getInt(1);
+                    }
+                }
+            }
+
+            if (orderId != -1) {
+                // 2. Insert Order Items
+                try (PreparedStatement pstmtItem = conn.prepareStatement(insertOrderItem)) {
+                    for (BasketItem item : items) {
+                        pstmtItem.setInt(1, orderId);
+                        pstmtItem.setString(2, item.getFood().getName());
+                        pstmtItem.setInt(3, item.getQuantity());
+                        pstmtItem.setDouble(4, item.getFood().getPrice());
+                        pstmtItem.addBatch();
+                    }
+                    pstmtItem.executeBatch();
+                }
+                conn.commit(); // Commit transaction
+            } else {
+                conn.rollback();
+            }
+
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ex) {
+                    System.out.println(ex.getMessage());
+                }
+            }
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException e) {
+                    System.out.println(e.getMessage());
+                }
+            }
+        }
+    }
+
+    // Method to get order history
+    public static List<Order> getOrderHistory() {
+        List<Order> orders = new ArrayList<>();
+        String sql = "SELECT id, date, total_amount FROM orders ORDER BY date DESC";
+
+        try (Connection conn = connect();
+                Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String date = rs.getString("date");
+                double total = rs.getDouble("total_amount");
+
+                // Get items for this order
+                String itemsDesc = getOrderItemsDescription(id);
+
+                orders.add(new Order(id, date, total, itemsDesc));
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+        return orders;
+    }
+
+    // Helper to get items description string
+    private static String getOrderItemsDescription(int orderId) {
+        StringBuilder sb = new StringBuilder();
+        String sql = "SELECT food_name, quantity FROM order_items WHERE order_id = ?";
+
+        try (Connection conn = connect();
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, orderId);
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                if (sb.length() > 0)
+                    sb.append(", ");
+                sb.append(rs.getString("food_name"))
+                        .append(" x")
+                        .append(rs.getInt("quantity"));
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+        return sb.toString();
+    }
+
     // Method to clear all data from database
     public static void clearDatabase() {
         String sqlFood = "DELETE FROM food";
         String sqlRestaurants = "DELETE FROM restaurants";
+        String sqlOrderItems = "DELETE FROM order_items";
+        String sqlOrders = "DELETE FROM orders";
 
         try (Connection conn = connect();
                 Statement stmt = conn.createStatement()) {
-            // Delete food first due to foreign key constraint
+            // Delete child tables first
+            stmt.execute(sqlOrderItems);
             stmt.execute(sqlFood);
+            stmt.execute(sqlOrders);
             stmt.execute(sqlRestaurants);
             System.out.println("Database cleared successfully.");
         } catch (SQLException e) {
