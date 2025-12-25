@@ -15,12 +15,6 @@ public class DatabaseManager {
     public static Connection connect() {
         Connection conn = null;
         try {
-            // Ensure the application directory exists
-            java.io.File directory = new java.io.File(APP_DIR);
-            if (!directory.exists()) {
-                directory.mkdirs();
-            }
-
             // db parameters
             conn = DriverManager.getConnection(DB_URL);
         } catch (SQLException e) {
@@ -30,6 +24,12 @@ public class DatabaseManager {
     }
 
     public static void initializeDatabase() {
+        // Ensure the application directory exists
+        java.io.File directory = new java.io.File(APP_DIR);
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+
         // SQL statement for creating a new table
         String sqlRestaurants = "CREATE TABLE IF NOT EXISTS restaurants (\n"
                 + " id integer PRIMARY KEY,\n"
@@ -76,16 +76,24 @@ public class DatabaseManager {
     }
 
     // Method to add a restaurant
-    public static void addRestaurant(String name) {
+    public static int addRestaurant(String name) {
         String sql = "INSERT INTO restaurants(name) VALUES(?)";
+        int id = -1;
 
         try (Connection conn = connect();
-                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setString(1, name);
             pstmt.executeUpdate();
+
+            try (ResultSet rs = pstmt.getGeneratedKeys()) {
+                if (rs.next()) {
+                    id = rs.getInt(1);
+                }
+            }
         } catch (SQLException e) {
             System.out.println(e.getMessage());
         }
+        return id;
     }
 
     // Method to add food
@@ -140,18 +148,9 @@ public class DatabaseManager {
                 String type = rs.getString("type");
                 double price = rs.getDouble("price");
 
-                Food food = null;
-                switch (type) {
-                    case "Drink" -> food = new Drink(name, price);
-                    case "Soup" -> food = new Soup(name, price);
-                    case "Main Course" -> food = new MainCourse(name, price);
-                    case "Salad" -> food = new Salad(name, price);
-                }
-
-                if (food != null) {
-                    food.setId(id);
-                    menu.addFood(food);
-                }
+                Food food = new Food(name, type, price);
+                food.setId(id);
+                menu.addFood(food);
             }
         } catch (SQLException e) {
             System.out.println(e.getMessage());
@@ -257,6 +256,51 @@ public class DatabaseManager {
                 }
             }
         }
+    }
+
+    // Helper method to get food by name
+    public static Food getFoodByName(String foodName) {
+        String sql = "SELECT id, name, type, price FROM food WHERE name = ?";
+        Food food = null;
+
+        try (Connection conn = connect();
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, foodName);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                food = new Food(rs.getString("name"), rs.getString("type"), rs.getDouble("price"));
+                food.setId(rs.getInt("id"));
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+        return food;
+    }
+
+    // Method to get basket items for a specific order (for reordering)
+    public static List<BasketItem> getOrderItems(int orderId) {
+        List<BasketItem> items = new ArrayList<>();
+        String sql = "SELECT food_name, quantity FROM order_items WHERE order_id = ?";
+
+        try (Connection conn = connect();
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, orderId);
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                String foodName = rs.getString("food_name");
+                int quantity = rs.getInt("quantity");
+
+                Food food = getFoodByName(foodName);
+                if (food != null) {
+                    items.add(new BasketItem(food, quantity));
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+        return items;
     }
 
     // Method to get order history

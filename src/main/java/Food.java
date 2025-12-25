@@ -1,11 +1,13 @@
-public abstract class Food {
+public class Food {
     private int id;
     private String name;
+    private String type;
     private double price;
 
     // Constructor
-    public Food(String name, double price) {
+    public Food(String name, String type, double price) {
         this.name = name;
+        this.type = type;
         this.price = price;
     }
 
@@ -16,6 +18,10 @@ public abstract class Food {
 
     public String getName() {
         return name;
+    }
+
+    public String getType() {
+        return type;
     }
 
     public double getPrice() {
@@ -31,12 +37,13 @@ public abstract class Food {
         this.name = name;
     }
 
+    public void setType(String type) {
+        this.type = type;
+    }
+
     public void setPrice(double price) {
         this.price = price;
     }
-
-    // Abstract method to be overridden by subclasses
-    public abstract String getType();
 
     // Method to display food information
     public String getDisplayInfo() {
@@ -45,58 +52,6 @@ public abstract class Food {
 
     @Override
     public String toString() {
-        return String.format("%s: %s - $%.2f", getType(), name, price);
-    }
-}
-
-// Drink subclass
-class Drink extends Food {
-
-    public Drink(String name, double price) {
-        super(name, price);
-    }
-
-    @Override
-    public String getType() {
-        return "Drink";
-    }
-}
-
-// Soup subclass
-class Soup extends Food {
-
-    public Soup(String name, double price) {
-        super(name, price);
-    }
-
-    @Override
-    public String getType() {
-        return "Soup";
-    }
-}
-
-// MainCourse subclass
-class MainCourse extends Food {
-
-    public MainCourse(String name, double price) {
-        super(name, price);
-    }
-
-    @Override
-    public String getType() {
-        return "Main Course";
-    }
-}
-
-// Salad subclass
-class Salad extends Food {
-
-    public Salad(String name, double price) {
-        super(name, price);
-    }
-
-    @Override
-    public String getType() {
-        return "Salad";
+        return String.format("%s: %s - $%.2f", type, name, price);
     }
 }

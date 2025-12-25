@@ -15,6 +15,10 @@ public class BasketItem {
         return quantity;
     }
 
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
+    }
+
     public double getTotalPrice() {
         return food.getPrice() * quantity;
     }

@@ -37,6 +37,12 @@ public class Main {
         String line;
         String cvsSplitBy = ",";
 
+        // Cache restaurant IDs to minimize DB queries
+        java.util.Map<String, Integer> restaurantCache = new java.util.HashMap<>();
+        for (Restaurant r : DatabaseManager.getAllRestaurants()) {
+            restaurantCache.put(r.getName().toLowerCase(), r.getId());
+        }
+
         try (BufferedReader br = new BufferedReader(new FileReader(csvFile))) {
             br.readLine(); // Skip header
 
@@ -47,34 +53,35 @@ public class Main {
                     String restaurantName = data[0].trim();
                     String foodName = data[1].trim();
                     String foodType = data[2].trim();
-                    double price = Double.parseDouble(data[3].trim());
+                    String priceStr = data[3].trim();
 
-                    int restaurantId = getOrCreateRestaurant(restaurantName);
-                    DatabaseManager.addFood(foodName, foodType, price, restaurantId);
+                    if (restaurantName.isEmpty() || foodName.isEmpty() || foodType.isEmpty() || priceStr.isEmpty()) {
+                        System.err.println("Skipping incomplete line: " + line);
+                        continue;
+                    }
+
+                    try {
+                        double price = Double.parseDouble(priceStr);
+
+                        int restaurantId;
+                        String cacheKey = restaurantName.toLowerCase();
+
+                        if (restaurantCache.containsKey(cacheKey)) {
+                            restaurantId = restaurantCache.get(cacheKey);
+                        } else {
+                            restaurantId = DatabaseManager.addRestaurant(restaurantName);
+                            restaurantCache.put(cacheKey, restaurantId);
+                        }
+
+                        DatabaseManager.addFood(foodName, foodType, price, restaurantId);
+                    } catch (NumberFormatException e) {
+                        System.err.println("Skipping line with invalid price: " + line);
+                    }
                 }
             }
             System.out.println("Data import completed.");
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    private static int getOrCreateRestaurant(String name) {
-        List<Restaurant> restaurants = DatabaseManager.getAllRestaurants();
-        for (Restaurant r : restaurants) {
-            if (r.getName().equalsIgnoreCase(name)) {
-                return r.getId();
-            }
-        }
-
-        DatabaseManager.addRestaurant(name);
-
-        restaurants = DatabaseManager.getAllRestaurants();
-        for (Restaurant r : restaurants) {
-            if (r.getName().equalsIgnoreCase(name)) {
-                return r.getId();
-            }
-        }
-        return -1;
     }
 }

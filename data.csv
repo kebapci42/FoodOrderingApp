@@ -1,9 +1,43 @@
 RestaurantName,FoodName,FoodType,Price
 Gourmet Bistro,Tomato Soup,Soup,5.99
+Gourmet Bistro,French Onion Soup,Soup,7.50
 Gourmet Bistro,Caesar Salad,Salad,8.50
 Gourmet Bistro,Grilled Salmon,Main Course,18.99
+Gourmet Bistro,Filet Mignon,Main Course,24.99
+Gourmet Bistro,Chocolate Lava Cake,Dessert,8.00
+Gourmet Bistro,Red Wine,Drink,9.00
+Gourmet Bistro,Sparkling Water,Drink,3.50
+Pasta Palace,Garlic Bread,Appetizer,4.50
+Pasta Palace,Bruschetta,Appetizer,5.50
 Pasta Palace,Spaghetti Carbonara,Main Course,12.50
-Pasta Palace,Tiramisu,Drink,6.00
-Burger Joint,Cheeseburger,Main Course,10.00
+Pasta Palace,Fettuccine Alfredo,Main Course,11.99
+Pasta Palace,Lasagna,Main Course,13.50
+Pasta Palace,Pizza Margherita,Main Course,14.99
+Pasta Palace,Tiramisu,Dessert,6.00
+Pasta Palace,Cannoli,Dessert,5.50
+Pasta Palace,House Wine,Drink,7.00
+Burger Joint,Cheeseburger,Main Course,8.50
+Burger Joint,Double Bacon Burger,Main Course,12.50
+Burger Joint,Chicken Sandwich,Main Course,9.00
+Burger Joint,Fries,Side,3.50
+Burger Joint,Onion Rings,Side,4.00
+Burger Joint,Chicken Nuggets,Appetizer,5.00
 Burger Joint,Coke,Drink,2.00
-Burger Joint,Fries,Salad,4.00
+Burger Joint,Milkshake,Drink,4.50
+Sushi Zen,Miso Soup,Soup,3.00
+Sushi Zen,Edamame,Appetizer,4.00
+Sushi Zen,Gyoza,Appetizer,5.50
+Sushi Zen,California Roll,Main Course,6.50
+Sushi Zen,Spicy Tuna Roll,Main Course,7.50
+Sushi Zen,Dragon Roll,Main Course,11.00
+Sushi Zen,Sashimi Platter,Main Course,15.00
+Sushi Zen,Green Tea Ice Cream,Dessert,4.50
+Sushi Zen,Sake,Drink,8.00
+Taco Fiesta,Guacamole & Chips,Appetizer,6.00
+Taco Fiesta,Queso Fundido,Appetizer,7.00
+Taco Fiesta,Tacos Al Pastor,Main Course,9.00
+Taco Fiesta,Burrito Supreme,Main Course,10.50
+Taco Fiesta,Chicken Quesadilla,Main Course,9.50
+Taco Fiesta,Churros,Dessert,5.00
+Taco Fiesta,Margarita,Drink,7.50
+Taco Fiesta,Jarritos,Drink,2.50

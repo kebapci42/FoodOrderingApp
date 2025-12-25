@@ -113,14 +113,11 @@ public class FoodOrderingGUI extends JFrame {
     private JList<Food> foodList;
     private DefaultListModel<Food> foodModel;
 
-    private JList<String> basketList;
-    private DefaultListModel<String> basketModel;
+    private JPanel basketItemsPanel;
     private List<BasketItem> basketItems;
 
-    private JTextField quantityField;
     private JLabel totalLabel;
     private JLabel itemCountLabel;
-    private JLabel qtyLabel;
     private JButton themeToggleBtn;
 
     // Wallet
@@ -249,35 +246,9 @@ public class FoodOrderingGUI extends JFrame {
         walletLabel.setForeground(Color.WHITE);
         walletLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 15));
 
-        // Order History button
-        JButton historyBtn = new JButton("Order History") {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2d = (Graphics2D) g;
-                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2d.setColor(new Color(255, 255, 255, 40));
-                g2d.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 20, 20));
-                g2d.setColor(Color.WHITE);
-                g2d.setFont(getFont());
-                FontMetrics fm = g2d.getFontMetrics();
-                int x = (getWidth() - fm.stringWidth(getText())) / 2;
-                int y = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
-                g2d.drawString(getText(), x, y);
-            }
-        };
-        historyBtn.setFont(BUTTON_FONT);
-        historyBtn.setPreferredSize(new Dimension(130, 35));
-        historyBtn.setFocusPainted(false);
-        historyBtn.setBorderPainted(false);
-        historyBtn.setContentAreaFilled(false);
-        historyBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        historyBtn.addActionListener(e -> showOrderHistory());
-
         JPanel headerRight = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         headerRight.setOpaque(false);
         headerRight.add(walletLabel);
-        headerRight.add(historyBtn);
-        headerRight.add(Box.createHorizontalStrut(10));
         headerRight.add(themeToggleBtn);
 
         headerPanel.add(headerLeft, BorderLayout.WEST);
@@ -306,7 +277,7 @@ public class FoodOrderingGUI extends JFrame {
             }
         });
 
-        leftPanel = createSectionPanel("Restaurants", new JScrollPane(restaurantList));
+        leftPanel = createSectionPanel("Restaurants", new JScrollPane(restaurantList), null);
         leftPanel.setPreferredSize(new Dimension(240, 0));
         mainContent.add(leftPanel, BorderLayout.WEST);
 
@@ -322,17 +293,28 @@ public class FoodOrderingGUI extends JFrame {
         JScrollPane foodScroll = new JScrollPane(foodList);
         foodScroll.setBorder(BorderFactory.createEmptyBorder());
 
-        centerPanel = createSectionPanel("Menu", foodScroll);
+        centerPanel = createSectionPanel("Menu", foodScroll, null);
         mainContent.add(centerPanel, BorderLayout.CENTER);
 
         // ═══════════════════════════════════════════════════════════════
         // RIGHT PANEL - Basket
         // ═══════════════════════════════════════════════════════════════
-        basketModel = new DefaultListModel<>();
-        basketList = new JList<>(basketModel);
-        basketList.setFont(FOOD_DETAIL_FONT);
-        basketList.setFixedCellHeight(35);
-        basketList.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        // Right Panel - Basket
+        basketItemsPanel = new JPanel();
+        basketItemsPanel.setLayout(new BoxLayout(basketItemsPanel, BoxLayout.Y_AXIS));
+        basketItemsPanel.setOpaque(false);
+
+        // Wrapper for alignment
+        JPanel basketWrapper = new JPanel(new BorderLayout());
+        basketWrapper.setOpaque(false);
+        basketWrapper.add(basketItemsPanel, BorderLayout.NORTH);
+
+        JScrollPane basketScroll = new JScrollPane(basketWrapper);
+        basketScroll.setBorder(BorderFactory.createEmptyBorder());
+        basketScroll.setOpaque(false);
+        basketScroll.getViewport().setOpaque(false);
+        // Faster scrolling
+        basketScroll.getVerticalScrollBar().setUnitIncrement(16);
 
         JPanel basketContent = new JPanel(new BorderLayout(0, 10));
         basketContent.setOpaque(false);
@@ -341,7 +323,7 @@ public class FoodOrderingGUI extends JFrame {
         itemCountLabel = new JLabel("0 items");
         itemCountLabel.setFont(FOOD_DETAIL_FONT);
         basketContent.add(itemCountLabel, BorderLayout.NORTH);
-        basketContent.add(new JScrollPane(basketList), BorderLayout.CENTER);
+        basketContent.add(basketScroll, BorderLayout.CENTER);
 
         // Total panel - now with theme support
         totalPanel = new JPanel(new BorderLayout());
@@ -373,7 +355,55 @@ public class FoodOrderingGUI extends JFrame {
 
         basketContent.add(checkoutContainer, BorderLayout.SOUTH);
 
-        rightPanel = createSectionPanel("Your Basket", basketContent);
+        // History button for Basket Panel
+        // History button for Basket Panel
+        JButton historyBtn = new JButton("History") {
+            private boolean hover = false;
+            {
+                addMouseListener(new MouseAdapter() {
+                    public void mouseEntered(MouseEvent e) {
+                        hover = true;
+                        repaint();
+                    }
+
+                    public void mouseExited(MouseEvent e) {
+                        hover = false;
+                        repaint();
+                    }
+                });
+            }
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                Color bg = hover ? APPETIZING_ORANGE : (isNightMode ? NIGHT_CARD_ALT : new Color(245, 245, 245));
+                g2d.setColor(bg);
+                g2d.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 15, 15));
+
+                if (!hover) {
+                    g2d.setColor(getBorderColor());
+                    g2d.draw(new RoundRectangle2D.Float(0, 0, getWidth() - 1, getHeight() - 1, 15, 15));
+                }
+
+                g2d.setColor(hover ? Color.WHITE : getTextColor());
+                g2d.setFont(getFont());
+                FontMetrics fm = g2d.getFontMetrics();
+                int x = (getWidth() - fm.stringWidth(getText())) / 2;
+                int y = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
+                g2d.drawString(getText(), x, y);
+            }
+        };
+        historyBtn.setFont(new Font(getSansSerifFont(), Font.BOLD, 12));
+        historyBtn.setPreferredSize(new Dimension(80, 28));
+        historyBtn.setFocusPainted(false);
+        historyBtn.setBorderPainted(false);
+        historyBtn.setContentAreaFilled(false);
+        historyBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        historyBtn.addActionListener(e -> showOrderHistory());
+
+        rightPanel = createSectionPanel("Basket", basketContent, historyBtn);
         rightPanel.setPreferredSize(new Dimension(280, 0));
         mainContent.add(rightPanel, BorderLayout.EAST);
 
@@ -385,44 +415,12 @@ public class FoodOrderingGUI extends JFrame {
         bottomPanel = new JPanel();
         bottomPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 15, 18));
 
-        qtyLabel = new JLabel("Qty:");
-        qtyLabel.setFont(SECTION_FONT);
-
-        // Quantity control with +/- buttons
-        JPanel quantityPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
-        quantityPanel.setOpaque(false);
-
-        JButton minusBtn = createQuantityButton("-");
-        minusBtn.addActionListener(e -> adjustQuantity(-1));
-
-        quantityField = new JTextField("1", 2);
-        quantityField.setFont(FOOD_NAME_FONT);
-        quantityField.setHorizontalAlignment(JTextField.CENTER);
-        quantityField.setPreferredSize(new Dimension(40, 35));
-
-        JButton plusBtn = createQuantityButton("+");
-        plusBtn.addActionListener(e -> adjustQuantity(1));
-
-        quantityPanel.add(minusBtn);
-        quantityPanel.add(quantityField);
-        quantityPanel.add(plusBtn);
-
         JButton addButton = createStyledButton("Add to Basket", OLIVE_GREEN, Color.WHITE);
         addButton.addActionListener(e -> addToBasket());
 
         JButton clearButton = createStyledButton("Clear", SPICY_RED, Color.WHITE);
         clearButton.addActionListener(e -> clearBasket());
 
-        // Delete buttons kept but hidden for potential future use
-        // JButton deleteFoodBtn = createStyledButton("Delete Item", new Color(192, 57,
-        // 43), Color.WHITE);
-        // deleteFoodBtn.addActionListener(e -> deleteFood());
-        // JButton deleteRestBtn = createStyledButton("Delete Restaurant", new
-        // Color(142, 68, 173), Color.WHITE);
-        // deleteRestBtn.addActionListener(e -> deleteRestaurant());
-
-        bottomPanel.add(qtyLabel);
-        bottomPanel.add(quantityPanel);
         bottomPanel.add(addButton);
         bottomPanel.add(clearButton);
 
@@ -451,9 +449,10 @@ public class FoodOrderingGUI extends JFrame {
         foodList.setBackground(getBgColor());
         foodList.setSelectionBackground(getFoodSelectionBg());
 
-        basketList.setBackground(getCardColor());
-        basketList.setForeground(getTextColor());
-        basketList.setSelectionBackground(isNightMode ? new Color(80, 60, 60) : new Color(255, 230, 230));
+        foodList.setSelectionBackground(getFoodSelectionBg());
+
+        // Refresh basket items with new theme colors
+        updateBasketDisplay();
 
         // Total panel - now properly themed
         totalPanel.setBackground(getTotalBgColor());
@@ -462,13 +461,6 @@ public class FoodOrderingGUI extends JFrame {
 
         // Bottom panel
         bottomPanel.setBackground(getCardColor());
-        qtyLabel.setForeground(getTextColor());
-        quantityField.setBackground(isNightMode ? NIGHT_CARD_ALT : Color.WHITE);
-        quantityField.setForeground(getTextColor());
-        quantityField.setCaretColor(getTextColor());
-        quantityField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(getBorderColor(), 1, true),
-                BorderFactory.createEmptyBorder(8, 12, 8, 12)));
 
         // Repaint header for gradient update
         headerPanel.repaint();
@@ -481,7 +473,7 @@ public class FoodOrderingGUI extends JFrame {
     // ═══════════════════════════════════════════════════════════════════
     // HELPER: Create styled section panel
     // ═══════════════════════════════════════════════════════════════════
-    private JPanel createSectionPanel(String title, JComponent content) {
+    private JPanel createSectionPanel(String title, JComponent content, JComponent headerAction) {
         JPanel panel = new JPanel(new BorderLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
@@ -503,6 +495,18 @@ public class FoodOrderingGUI extends JFrame {
         titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 5, 12, 0));
 
         panel.add(titleLabel, BorderLayout.NORTH);
+
+        // Custom header layout if action exists
+        if (headerAction != null) {
+            JPanel header = new JPanel(new BorderLayout());
+            header.setOpaque(false);
+            header.add(titleLabel, BorderLayout.WEST);
+            header.add(headerAction, BorderLayout.EAST);
+            panel.add(header, BorderLayout.NORTH);
+        } else {
+            panel.add(titleLabel, BorderLayout.NORTH);
+        }
+
         panel.add(content, BorderLayout.CENTER);
 
         return panel;
@@ -552,19 +556,6 @@ public class FoodOrderingGUI extends JFrame {
         button.setContentAreaFilled(false);
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
         return button;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
-    // HELPER: Adjust quantity value
-    // ═══════════════════════════════════════════════════════════════════
-    private void adjustQuantity(int delta) {
-        try {
-            int current = Integer.parseInt(quantityField.getText());
-            int newValue = Math.max(1, current + delta); // Minimum 1
-            quantityField.setText(String.valueOf(newValue));
-        } catch (NumberFormatException e) {
-            quantityField.setText("1");
-        }
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -738,26 +729,9 @@ public class FoodOrderingGUI extends JFrame {
             return;
         }
 
-        try {
-            int quantity = Integer.parseInt(quantityField.getText());
-            if (quantity <= 0) {
-                JOptionPane.showMessageDialog(this,
-                        "Quantity must be at least 1!",
-                        "Invalid Quantity",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            BasketItem item = new BasketItem(selectedFood, quantity);
-            basketItems.add(item);
-            updateBasketDisplay();
-            quantityField.setText("1");
-        } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this,
-                    "Please enter a valid number!",
-                    "Invalid Input",
-                    JOptionPane.WARNING_MESSAGE);
-        }
+        BasketItem item = new BasketItem(selectedFood, 1);
+        basketItems.add(item);
+        updateBasketDisplay();
     }
 
     private void clearBasket() {
@@ -776,17 +750,95 @@ public class FoodOrderingGUI extends JFrame {
     }
 
     private void updateBasketDisplay() {
-        basketModel.clear();
+        basketItemsPanel.removeAll();
         double total = 0.0;
 
         for (BasketItem item : basketItems) {
-            basketModel.addElement(String.format("%dx %s  $%.2f",
-                    item.getQuantity(), item.getFood().getName(), item.getTotalPrice()));
+            basketItemsPanel.add(createBasketItemPanel(item));
+            basketItemsPanel.add(Box.createVerticalStrut(8)); // Spacing between items
             total += item.getTotalPrice();
         }
 
         totalLabel.setText(String.format("$%.2f", total));
         itemCountLabel.setText(basketItems.size() + (basketItems.size() == 1 ? " item" : " items"));
+
+        basketItemsPanel.revalidate();
+        basketItemsPanel.repaint();
+    }
+
+    private JPanel createBasketItemPanel(BasketItem item) {
+        JPanel panel = new JPanel(new BorderLayout(5, 5));
+        panel.setOpaque(true);
+        panel.setBackground(getCardColor());
+        panel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(getBorderColor(), 1, true),
+                BorderFactory.createEmptyBorder(8, 8, 8, 8)));
+        panel.setMaximumSize(new Dimension(Short.MAX_VALUE, 85));
+
+        // Name and Price
+        JLabel nameLabel = new JLabel(item.getFood().getName());
+        nameLabel.setFont(new Font(getSansSerifFont(), Font.BOLD, 14));
+        nameLabel.setForeground(getTextColor());
+
+        JLabel priceLabel = new JLabel(String.format("$%.2f", item.getTotalPrice()));
+        priceLabel.setFont(new Font(getSansSerifFont(), Font.BOLD, 13));
+        priceLabel.setForeground(OLIVE_GREEN);
+
+        JPanel topRow = new JPanel(new BorderLayout());
+        topRow.setOpaque(false);
+        topRow.add(nameLabel, BorderLayout.CENTER);
+        topRow.add(priceLabel, BorderLayout.EAST);
+
+        // Controls
+        JPanel controls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        controls.setOpaque(false);
+
+        JButton minusBtn = createQuantityButton("-");
+        minusBtn.setPreferredSize(new Dimension(25, 25));
+        minusBtn.setFont(new Font(getSansSerifFont(), Font.BOLD, 12));
+        minusBtn.addActionListener(e -> {
+            int newQty = item.getQuantity() - 1;
+            if (newQty > 0) {
+                item.setQuantity(newQty);
+                updateBasketDisplay();
+            }
+        });
+
+        JLabel qtyDisplay = new JLabel(String.valueOf(item.getQuantity()));
+        qtyDisplay.setFont(new Font(getSansSerifFont(), Font.PLAIN, 13));
+        qtyDisplay.setForeground(getTextColor());
+        qtyDisplay.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 4));
+
+        JButton plusBtn = createQuantityButton("+");
+        plusBtn.setPreferredSize(new Dimension(25, 25));
+        plusBtn.setFont(new Font(getSansSerifFont(), Font.BOLD, 12));
+        plusBtn.addActionListener(e -> {
+            item.setQuantity(item.getQuantity() + 1);
+            updateBasketDisplay();
+        });
+
+        JButton removeBtn = new JButton("×");
+        removeBtn.setFont(new Font(getSansSerifFont(), Font.BOLD, 16));
+        removeBtn.setForeground(SPICY_RED);
+        removeBtn.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 0));
+        removeBtn.setContentAreaFilled(false);
+        removeBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        removeBtn.addActionListener(e -> {
+            basketItems.remove(item);
+            updateBasketDisplay();
+        });
+
+        if (item.getQuantity() > 1) {
+            controls.add(minusBtn);
+        }
+        controls.add(qtyDisplay);
+        controls.add(plusBtn);
+        controls.add(removeBtn);
+
+        panel.add(topRow, BorderLayout.NORTH);
+        panel.add(controls, BorderLayout.SOUTH);
+
+        return panel;
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -881,8 +933,25 @@ public class FoodOrderingGUI extends JFrame {
 
         JButton closeBtn = new JButton("Close");
         closeBtn.addActionListener(e -> historyDialog.dispose());
+
+        JButton reorderBtn = new JButton("Reorder Selected");
+        reorderBtn.addActionListener(e -> {
+            int selectedRow = table.getSelectedRow();
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(historyDialog, "Select an order to reorder!");
+                return;
+            }
+            int orderId = (int) tableModel.getValueAt(selectedRow, 0);
+            List<BasketItem> pastItems = DatabaseManager.getOrderItems(orderId);
+            basketItems.addAll(pastItems);
+            updateBasketDisplay();
+            historyDialog.dispose();
+            JOptionPane.showMessageDialog(this, "Items added to basket!");
+        });
+
         JPanel btnPanel = new JPanel();
         btnPanel.setBackground(isNightMode ? NIGHT_CARD : LIGHT_CARD_ALT);
+        btnPanel.add(reorderBtn);
         btnPanel.add(closeBtn);
 
         historyDialog.add(btnPanel, BorderLayout.SOUTH);
@@ -940,9 +1009,4 @@ public class FoodOrderingGUI extends JFrame {
             foodModel.clear();
         }
     }
-
-    // ═══════════════════════════════════════════════════════════════════
-    // BASKET ITEM CLASS
-    // ═══════════════════════════════════════════════════════════════════
-
 }
