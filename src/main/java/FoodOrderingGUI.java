@@ -49,9 +49,7 @@ public class FoodOrderingGUI extends JFrame {
 
     // Get the best available font for the current OS
     private static String getSerifFont() {
-        if (IS_MAC) {
-            return "Georgia"; // Georgia is available on macOS
-        } else if (IS_WINDOWS) {
+        if (IS_MAC || IS_WINDOWS) {
             return "Georgia";
         }
         return Font.SERIF; // Linux fallback
@@ -961,32 +959,6 @@ public class FoodOrderingGUI extends JFrame {
     // ═══════════════════════════════════════════════════════════════════
     // DELETE OPERATIONS
     // ═══════════════════════════════════════════════════════════════════
-    private void deleteFood() {
-        Food selectedFood = foodList.getSelectedValue();
-        if (selectedFood == null) {
-            JOptionPane.showMessageDialog(this,
-                    "Please select a food item to delete!",
-                    "No Selection",
-                    JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
-
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "Delete '" + selectedFood.getName() + "' from the menu?",
-                "Confirm Delete",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE);
-
-        if (confirm == JOptionPane.YES_OPTION) {
-            DatabaseManager.deleteFood(selectedFood.getId());
-            Restaurant selectedRestaurant = restaurantList.getSelectedValue();
-            loadRestaurants();
-            if (selectedRestaurant != null) {
-                restaurantList.setSelectedValue(selectedRestaurant, true);
-            }
-        }
-    }
-
     private void deleteRestaurant() {
         Restaurant selectedRestaurant = restaurantList.getSelectedValue();
         if (selectedRestaurant == null) {

@@ -9,7 +9,6 @@ import java.util.List;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-
 public class DatabaseManager {
     private static final String APP_DIR = System.getProperty("user.home") + java.io.File.separator
             + ".food_ordering_app";
@@ -18,7 +17,6 @@ public class DatabaseManager {
     public static Connection connect() {
         Connection conn = null;
         try {
-            // db parameters
             conn = DriverManager.getConnection(DB_URL);
         } catch (SQLException e) {
             System.out.println(e.getMessage());
@@ -27,13 +25,11 @@ public class DatabaseManager {
     }
 
     public static void initializeDatabase() {
-        // Ensure the application directory exists
         java.io.File directory = new java.io.File(APP_DIR);
         if (!directory.exists()) {
             directory.mkdirs();
         }
 
-        // SQL statement for creating a new table
         String sqlRestaurants = "CREATE TABLE IF NOT EXISTS restaurants (\n"
                 + " id integer PRIMARY KEY,\n"
                 + " name text NOT NULL\n"
@@ -50,19 +46,19 @@ public class DatabaseManager {
 
         try (Connection conn = connect();
                 Statement stmt = conn.createStatement()) {
-            // create new tables
             stmt.execute(sqlRestaurants);
             stmt.execute(sqlFood);
 
-            // Create orders table
+            // Create orders table with restaurant_id
             String sqlOrders = "CREATE TABLE IF NOT EXISTS orders (\n"
                     + " id integer PRIMARY KEY,\n"
                     + " date text NOT NULL,\n"
-                    + " total_amount real\n"
+                    + " total_amount real,\n"
+                    + " restaurant_id integer,\n"
+                    + " FOREIGN KEY (restaurant_id) REFERENCES restaurants (id)\n"
                     + ");";
             stmt.execute(sqlOrders);
 
-            // Create order_items table
             String sqlOrderItems = "CREATE TABLE IF NOT EXISTS order_items (\n"
                     + " id integer PRIMARY KEY,\n"
                     + " order_id integer,\n"
@@ -78,7 +74,6 @@ public class DatabaseManager {
         }
     }
 
-    // Method to add a restaurant
     public static int addRestaurant(String name) {
         String sql = "INSERT INTO restaurants(name) VALUES(?)";
         int id = -1;
@@ -99,7 +94,6 @@ public class DatabaseManager {
         return id;
     }
 
-    // Method to add food
     public static void addFood(String name, String type, double price, int restaurantId) {
         String sql = "INSERT INTO food(name, type, price, restaurant_id) VALUES(?,?,?,?)";
 
@@ -115,7 +109,22 @@ public class DatabaseManager {
         }
     }
 
-    // Method to get all restaurants with their menus
+    // NEW: Update food item
+    public static void updateFood(int foodId, String name, String type, double price) {
+        String sql = "UPDATE food SET name = ?, type = ?, price = ? WHERE id = ?";
+
+        try (Connection conn = connect();
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, name);
+            pstmt.setString(2, type);
+            pstmt.setDouble(3, price);
+            pstmt.setInt(4, foodId);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
     public static List<Restaurant> getAllRestaurants() {
         List<Restaurant> restaurants = new ArrayList<>();
         String sql = "SELECT id, name FROM restaurants";
@@ -135,7 +144,26 @@ public class DatabaseManager {
         return restaurants;
     }
 
-    // Helper method to get menu for a restaurant
+    // NEW: Get restaurant by ID
+    public static Restaurant getRestaurantById(int id) {
+        String sql = "SELECT id, name FROM restaurants WHERE id = ?";
+        Restaurant restaurant = null;
+
+        try (Connection conn = connect();
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, id);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                restaurant = new Restaurant(rs.getInt("id"), rs.getString("name"));
+                restaurant.setMenu(getMenuForRestaurant(id));
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+        return restaurant;
+    }
+
     private static Menu getMenuForRestaurant(int restaurantId) {
         Menu menu = new Menu();
         String sql = "SELECT id, name, type, price FROM food WHERE restaurant_id = ?";
@@ -161,7 +189,6 @@ public class DatabaseManager {
         return menu;
     }
 
-    // Method to delete a food item
     public static void deleteFood(int foodId) {
         String sql = "DELETE FROM food WHERE id = ?";
 
@@ -174,18 +201,15 @@ public class DatabaseManager {
         }
     }
 
-    // Method to delete a restaurant (and all its food items)
     public static void deleteRestaurant(int restaurantId) {
         String sqlFood = "DELETE FROM food WHERE restaurant_id = ?";
         String sqlRestaurant = "DELETE FROM restaurants WHERE id = ?";
 
         try (Connection conn = connect();
                 PreparedStatement pstmt = conn.prepareStatement(sqlFood)) {
-            // Delete all food items first
             pstmt.setInt(1, restaurantId);
             pstmt.executeUpdate();
 
-            // Then delete the restaurant
             PreparedStatement pstmt2 = conn.prepareStatement(sqlRestaurant);
             pstmt2.setInt(1, restaurantId);
             pstmt2.executeUpdate();
@@ -194,9 +218,15 @@ public class DatabaseManager {
         }
     }
 
-    // Method to place an order
+    // MODIFIED: placeOrder now tracks restaurant_id
     public static void placeOrder(List<BasketItem> items, double totalAmount) {
-        String insertOrder = "INSERT INTO orders(date, total_amount) VALUES(?,?)";
+        if (items.isEmpty())
+            return;
+
+        // Determine restaurant_id from first item
+        int restaurantId = getRestaurantIdForFood(items.get(0).getFood().getName());
+
+        String insertOrder = "INSERT INTO orders(date, total_amount, restaurant_id) VALUES(?,?,?)";
         String insertOrderItem = "INSERT INTO order_items(order_id, food_name, quantity, price) VALUES(?,?,?,?)";
 
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
@@ -207,13 +237,13 @@ public class DatabaseManager {
         Connection conn = null;
         try {
             conn = connect();
-            conn.setAutoCommit(false); // Start transaction
+            conn.setAutoCommit(false);
 
-            // 1. Insert Order and get ID
             int orderId = -1;
             try (PreparedStatement pstmt = conn.prepareStatement(insertOrder, Statement.RETURN_GENERATED_KEYS)) {
                 pstmt.setString(1, dateStr);
                 pstmt.setDouble(2, totalAmount);
+                pstmt.setInt(3, restaurantId);
                 pstmt.executeUpdate();
 
                 try (ResultSet rs = pstmt.getGeneratedKeys()) {
@@ -224,7 +254,6 @@ public class DatabaseManager {
             }
 
             if (orderId != -1) {
-                // 2. Insert Order Items
                 try (PreparedStatement pstmtItem = conn.prepareStatement(insertOrderItem)) {
                     for (BasketItem item : items) {
                         pstmtItem.setInt(1, orderId);
@@ -235,7 +264,7 @@ public class DatabaseManager {
                     }
                     pstmtItem.executeBatch();
                 }
-                conn.commit(); // Commit transaction
+                conn.commit();
                 sendOrderToServer(items, totalAmount);
 
             } else {
@@ -263,7 +292,25 @@ public class DatabaseManager {
         }
     }
 
-    // Helper method to get food by name
+    // NEW: Get restaurant_id for a food item by name
+    private static int getRestaurantIdForFood(String foodName) {
+        String sql = "SELECT restaurant_id FROM food WHERE name = ? LIMIT 1";
+        int restaurantId = -1;
+
+        try (Connection conn = connect();
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, foodName);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                restaurantId = rs.getInt("restaurant_id");
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+        return restaurantId;
+    }
+
     public static Food getFoodByName(String foodName) {
         String sql = "SELECT id, name, type, price FROM food WHERE name = ?";
         Food food = null;
@@ -283,7 +330,6 @@ public class DatabaseManager {
         return food;
     }
 
-    // Method to get basket items for a specific order (for reordering)
     public static List<BasketItem> getOrderItems(int orderId) {
         List<BasketItem> items = new ArrayList<>();
         String sql = "SELECT food_name, quantity FROM order_items WHERE order_id = ?";
@@ -308,7 +354,6 @@ public class DatabaseManager {
         return items;
     }
 
-    // Method to get order history
     public static List<Order> getOrderHistory() {
         List<Order> orders = new ArrayList<>();
         String sql = "SELECT id, date, total_amount FROM orders ORDER BY date DESC";
@@ -322,7 +367,6 @@ public class DatabaseManager {
                 String date = rs.getString("date");
                 double total = rs.getDouble("total_amount");
 
-                // Get items for this order
                 String itemsDesc = getOrderItemsDescription(id);
 
                 orders.add(new Order(id, date, total, itemsDesc));
@@ -333,7 +377,6 @@ public class DatabaseManager {
         return orders;
     }
 
-    // Helper to get items description string
     private static String getOrderItemsDescription(int orderId) {
         StringBuilder sb = new StringBuilder();
         String sql = "SELECT food_name, quantity FROM order_items WHERE order_id = ?";
@@ -356,7 +399,30 @@ public class DatabaseManager {
         return sb.toString();
     }
 
-    // Method to clear all data from database
+    // NEW: Get orders for a specific restaurant
+    public static List<RestaurantOrder> getOrdersForRestaurant(int restaurantId) {
+        List<RestaurantOrder> orders = new ArrayList<>();
+        String sql = "SELECT id, date, total_amount FROM orders WHERE restaurant_id = ? ORDER BY date DESC";
+
+        try (Connection conn = connect();
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, restaurantId);
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String date = rs.getString("date");
+                double total = rs.getDouble("total_amount");
+                String itemsDesc = getOrderItemsDescription(id);
+
+                orders.add(new RestaurantOrder(id, date, total, itemsDesc));
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+        return orders;
+    }
+
     public static void clearDatabase() {
         String sqlFood = "DELETE FROM food";
         String sqlRestaurants = "DELETE FROM restaurants";
@@ -365,7 +431,6 @@ public class DatabaseManager {
 
         try (Connection conn = connect();
                 Statement stmt = conn.createStatement()) {
-            // Delete child tables first
             stmt.execute(sqlOrderItems);
             stmt.execute(sqlFood);
             stmt.execute(sqlOrders);
@@ -375,12 +440,13 @@ public class DatabaseManager {
             System.out.println(e.getMessage());
         }
     }
+
     private static void sendOrderToServer(List<BasketItem> items, double totalAmount) {
         String serverIP = "127.0.0.1"; // localhost
         int port = 6000;
 
         try (Socket socket = new Socket(serverIP, port);
-             PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
             out.println("Total Amount: $" + totalAmount);
 
@@ -388,8 +454,7 @@ public class DatabaseManager {
                 out.println(
                         item.getFood().getName() +
                                 " x" + item.getQuantity() +
-                                " ($" + item.getTotalPrice() + ")"
-                );
+                                " ($" + item.getTotalPrice() + ")");
             }
 
         } catch (Exception e) {

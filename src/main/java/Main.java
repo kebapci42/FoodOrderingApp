@@ -18,10 +18,6 @@ public class Main {
         System.out.println("\n--- Restaurants from Database ---");
         List<Restaurant> restaurants = DatabaseManager.getAllRestaurants();
 
-        SwingUtilities.invokeLater(() -> {
-            new FoodOrderingGUI().setVisible(true);
-        });
-
         if (restaurants.isEmpty()) {
             System.out.println("No restaurants found in database.");
         } else {
@@ -31,13 +27,35 @@ public class Main {
                 System.out.println("-----------------------------");
             }
         }
+
+        // Show GUI selection dialog
+        SwingUtilities.invokeLater(() -> {
+            String[] options = {"Customer", "Restaurant Manager"};
+            int choice = JOptionPane.showOptionDialog(
+                null,
+                "Select interface to launch:",
+                "Delicious Bites",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                options[0]
+            );
+
+            if (choice == 0) {
+                // Launch Customer GUI
+                new FoodOrderingGUI().setVisible(true);
+            } else if (choice == 1) {
+                // Launch Restaurant GUI
+                new RestaurantGUI().setVisible(true);
+            }
+        });
     }
 
     private static void importDataFromCSV(String csvFile) {
         String line;
         String cvsSplitBy = ",";
 
-        // Cache restaurant IDs to minimize DB queries
         java.util.Map<String, Integer> restaurantCache = new java.util.HashMap<>();
         for (Restaurant r : DatabaseManager.getAllRestaurants()) {
             restaurantCache.put(r.getName().toLowerCase(), r.getId());

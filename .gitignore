@@ -12,6 +12,3 @@ dependency-reduced-pom.xml
 
 # OS
 .DS_Store
-
-# Proposal
-./ordering_app_proposal.txt
