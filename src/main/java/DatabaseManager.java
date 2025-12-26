@@ -6,6 +6,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.io.PrintWriter;
+import java.net.Socket;
+
 
 public class DatabaseManager {
     private static final String APP_DIR = System.getProperty("user.home") + java.io.File.separator
@@ -233,6 +236,8 @@ public class DatabaseManager {
                     pstmtItem.executeBatch();
                 }
                 conn.commit(); // Commit transaction
+                sendOrderToServer(items, totalAmount);
+
             } else {
                 conn.rollback();
             }
@@ -370,4 +375,26 @@ public class DatabaseManager {
             System.out.println(e.getMessage());
         }
     }
+    private static void sendOrderToServer(List<BasketItem> items, double totalAmount) {
+        String serverIP = "127.0.0.1"; // localhost
+        int port = 6000;
+
+        try (Socket socket = new Socket(serverIP, port);
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+
+            out.println("Total Amount: $" + totalAmount);
+
+            for (BasketItem item : items) {
+                out.println(
+                        item.getFood().getName() +
+                                " x" + item.getQuantity() +
+                                " ($" + item.getTotalPrice() + ")"
+                );
+            }
+
+        } catch (Exception e) {
+            System.out.println("⚠ Could not send order to server");
+        }
+    }
+
 }
