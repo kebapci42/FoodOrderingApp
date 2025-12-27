@@ -15,6 +15,7 @@ public class DatabaseManager {
     private static final String APP_DIR = System.getProperty("user.home") + java.io.File.separator
             + ".food_ordering_app";
     private static final String DB_URL = "jdbc:sqlite:" + APP_DIR + java.io.File.separator + "food_ordering.db";
+    private static int port;
 
     public static Connection connect() {
         Connection conn = null;
@@ -26,11 +27,13 @@ public class DatabaseManager {
         return conn;
     }
 
-    public static void initializeDatabase() {
+    public static void initializeDatabase(int portNumber) {
         java.io.File directory = new java.io.File(APP_DIR);
         if (!directory.exists()) {
             directory.mkdirs();
         }
+
+        port = portNumber;
 
         String sqlRestaurants = "CREATE TABLE IF NOT EXISTS restaurants (\n"
                 + " id integer PRIMARY KEY,\n"
@@ -540,7 +543,6 @@ public class DatabaseManager {
     // ═══════════════════════════════════════════════════════════════════
     private static String sendOrderToServer(List<BasketItem> items, double totalAmount, int restaurantId) {
         String serverIP = "127.0.0.1";
-        int port = 6000;
 
         try (Socket socket = new Socket(serverIP, port);
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);

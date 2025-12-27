@@ -6,14 +6,33 @@ import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
+        int port = 6000; // default
+        if (args.length > 0) {
+            try {
+                port = Integer.parseInt(args[0]);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid port argument, using default: " + port);
+            }
+        }
+
         System.out.println("Initializing Database...");
-        DatabaseManager.initializeDatabase();
+        DatabaseManager.initializeDatabase(port);
 
-        System.out.println("Clearing existing data...");
-        DatabaseManager.clearDatabase();
+        // Check for --clear flag
+        boolean clearDatabase = false;
+        for (String arg : args) {
+            if ("--clear".equals(arg)) {
+                clearDatabase = true;
+                break;
+            }
+        }
 
-        System.out.println("Importing data from CSV...");
-        importDataFromCSV("data.csv");
+        if (clearDatabase) {
+            System.out.println("Clearing existing data...");
+            DatabaseManager.clearDatabase();
+            System.out.println("Importing data from CSV...");
+            importDataFromCSV("data.csv");
+        }
 
         System.out.println("\n--- Restaurants from Database ---");
         List<Restaurant> restaurants = DatabaseManager.getAllRestaurants();
@@ -30,17 +49,16 @@ public class Main {
 
         // Show GUI selection dialog
         SwingUtilities.invokeLater(() -> {
-            String[] options = {"Customer", "Restaurant Manager"};
+            String[] options = { "Customer", "Restaurant Manager" };
             int choice = JOptionPane.showOptionDialog(
-                null,
-                "Select interface to launch:",
-                "Delicious Bites",
-                JOptionPane.DEFAULT_OPTION,
-                JOptionPane.QUESTION_MESSAGE,
-                null,
-                options,
-                options[0]
-            );
+                    null,
+                    "Select interface to launch:",
+                    "Delicious Bites",
+                    JOptionPane.DEFAULT_OPTION,
+                    JOptionPane.QUESTION_MESSAGE,
+                    null,
+                    options,
+                    options[0]);
 
             if (choice == 0) {
                 // Launch Customer GUI

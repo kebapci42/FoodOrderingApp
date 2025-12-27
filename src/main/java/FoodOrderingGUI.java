@@ -935,6 +935,7 @@ public class FoodOrderingGUI extends JFrame {
         };
 
         JTable table = new JTable(tableModel);
+        table.setAutoCreateRowSorter(true);
         table.setFillsViewportHeight(true);
         table.setFont(FOOD_DETAIL_FONT);
         table.setRowHeight(30);
