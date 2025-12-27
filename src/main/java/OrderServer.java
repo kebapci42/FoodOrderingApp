@@ -19,7 +19,14 @@ public class OrderServer {
     private static final String DB_URL = "jdbc:sqlite:" + APP_DIR + java.io.File.separator + "food_ordering.db";
 
     public static void main(String[] args) {
-        int port = 6000;
+        int port = 6000; // default
+        if (args.length > 0) {
+            try {
+                port = Integer.parseInt(args[0]);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid port argument, using default: " + port);
+            }
+        }
 
         System.out.println("═══════════════════════════════════════════════════════");
         System.out.println("🟢 Order Server started on port " + port);
@@ -43,10 +50,10 @@ public class OrderServer {
 
     private static void handleClient(Socket clientSocket) {
         try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
+                PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
 
             String line = in.readLine();
-            
+
             if ("ORDER".equals(line)) {
                 processOrder(in, out);
             } else {
@@ -86,10 +93,9 @@ public class OrderServer {
                     String[] parts = line.substring(5).split("\\|");
                     if (parts.length == 3) {
                         items.add(new OrderItem(
-                            parts[0],
-                            Integer.parseInt(parts[1]),
-                            Double.parseDouble(parts[2])
-                        ));
+                                parts[0],
+                                Integer.parseInt(parts[1]),
+                                Double.parseDouble(parts[2])));
                     }
                 }
             }
@@ -103,8 +109,8 @@ public class OrderServer {
                 System.out.println("   Total: $" + String.format("%.2f", totalAmount));
                 System.out.println("   Items:");
                 for (OrderItem item : items) {
-                    System.out.println("     • " + item.name + " x" + item.quantity + 
-                                     " ($" + String.format("%.2f", item.price * item.quantity) + ")");
+                    System.out.println("     • " + item.name + " x" + item.quantity +
+                            " ($" + String.format("%.2f", item.price * item.quantity) + ")");
                 }
                 System.out.println("───────────────────────────────────────────────────────");
                 out.println("OK:Order stored successfully");

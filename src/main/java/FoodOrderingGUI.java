@@ -978,27 +978,4 @@ public class FoodOrderingGUI extends JFrame {
         historyDialog.add(btnPanel, BorderLayout.SOUTH);
         historyDialog.setVisible(true);
     }
-
-    private void deleteRestaurant() {
-        Restaurant selectedRestaurant = restaurantList.getSelectedValue();
-        if (selectedRestaurant == null) {
-            JOptionPane.showMessageDialog(this,
-                    "Please select a restaurant to delete!",
-                    "No Selection",
-                    JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
-
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "Delete '" + selectedRestaurant.getName() + "' and all its menu items?",
-                "Confirm Delete Restaurant",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE);
-
-        if (confirm == JOptionPane.YES_OPTION) {
-            DatabaseManager.deleteRestaurant(selectedRestaurant.getId());
-            loadRestaurants();
-            foodModel.clear();
-        }
-    }
 }
