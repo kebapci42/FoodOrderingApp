@@ -47,17 +47,15 @@ public class FoodOrderingGUI extends JFrame {
     private static final boolean IS_MAC = OS_NAME.contains("mac");
     private static final boolean IS_WINDOWS = OS_NAME.contains("win");
 
-    // Get the best available font for the current OS
     private static String getSerifFont() {
         if (IS_MAC || IS_WINDOWS) {
             return "Georgia";
         }
-        return Font.SERIF; // Linux fallback
+        return Font.SERIF;
     }
 
     private static String getSansSerifFont() {
         if (IS_MAC) {
-            // Try SF Pro first, then Helvetica Neue, then system default
             String[] macFonts = { ".SF NS Text", "SF Pro Text", "Helvetica Neue", "Helvetica" };
             for (String fontName : macFonts) {
                 if (isFontAvailable(fontName)) {
@@ -68,7 +66,7 @@ public class FoodOrderingGUI extends JFrame {
         } else if (IS_WINDOWS) {
             return "Segoe UI";
         }
-        return Font.SANS_SERIF; // Linux fallback
+        return Font.SANS_SERIF;
     }
 
     private static boolean isFontAvailable(String fontName) {
@@ -118,9 +116,10 @@ public class FoodOrderingGUI extends JFrame {
     private JLabel itemCountLabel;
     private JButton themeToggleBtn;
 
-    // Wallet
     private double walletBalance = 100.00;
     private JLabel walletLabel;
+
+    private Timer autoRefreshTimer;
 
     public FoodOrderingGUI() {
         setTitle("Delicious Bites - Food Ordering");
@@ -134,6 +133,48 @@ public class FoodOrderingGUI extends JFrame {
         initUI();
         loadRestaurants();
         applyTheme();
+        startAutoRefresh();
+    }
+
+    private void startAutoRefresh() {
+        autoRefreshTimer = new Timer(15000, e -> refreshMenuOnly());
+        autoRefreshTimer.start();
+    }
+
+    private void refreshMenuOnly() {
+        Restaurant selected = restaurantList.getSelectedValue();
+        if (selected != null) {
+            // Reload menu for currently selected restaurant
+            Restaurant updated = DatabaseManager.getRestaurantById(selected.getId());
+            if (updated != null) {
+                foodModel.clear();
+                for (Food food : updated.getMenu().getFoodItems()) {
+                    foodModel.addElement(food);
+                }
+            }
+        }
+
+        // Update basket prices from database
+        boolean priceChanged = false;
+        for (BasketItem item : basketItems) {
+            Food currentFood = DatabaseManager.getFoodByName(item.getFood().getName());
+            if (currentFood != null && currentFood.getPrice() != item.getFood().getPrice()) {
+                item.getFood().setPrice(currentFood.getPrice());
+                priceChanged = true;
+            }
+        }
+
+        if (priceChanged) {
+            updateBasketDisplay();
+        }
+    }
+
+    @Override
+    public void dispose() {
+        if (autoRefreshTimer != null) {
+            autoRefreshTimer.stop();
+        }
+        super.dispose();
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -177,7 +218,7 @@ public class FoodOrderingGUI extends JFrame {
 
     private void initUI() {
         // ═══════════════════════════════════════════════════════════════
-        // HEADER PANEL - Increased height for better text display
+        // HEADER PANEL
         // ═══════════════════════════════════════════════════════════════
         headerPanel = new JPanel() {
             @Override
@@ -193,8 +234,8 @@ public class FoodOrderingGUI extends JFrame {
             }
         };
         headerPanel.setLayout(new BorderLayout());
-        headerPanel.setBorder(BorderFactory.createEmptyBorder(18, 30, 22, 30)); // More bottom padding
-        headerPanel.setPreferredSize(new Dimension(0, 100)); // Taller header
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(18, 30, 22, 30));
+        headerPanel.setPreferredSize(new Dimension(0, 100));
 
         JPanel headerLeft = new JPanel();
         headerLeft.setOpaque(false);
@@ -214,7 +255,6 @@ public class FoodOrderingGUI extends JFrame {
         headerLeft.add(Box.createVerticalStrut(8));
         headerLeft.add(taglineLabel);
 
-        // Theme toggle button in header
         themeToggleBtn = new JButton("Night Mode") {
             @Override
             protected void paintComponent(Graphics g) {
@@ -238,7 +278,6 @@ public class FoodOrderingGUI extends JFrame {
         themeToggleBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         themeToggleBtn.addActionListener(e -> toggleTheme());
 
-        // Wallet Label
         walletLabel = new JLabel(String.format("Wallet: $%.2f", walletBalance));
         walletLabel.setFont(SECTION_FONT);
         walletLabel.setForeground(Color.WHITE);
@@ -297,12 +336,10 @@ public class FoodOrderingGUI extends JFrame {
         // ═══════════════════════════════════════════════════════════════
         // RIGHT PANEL - Basket
         // ═══════════════════════════════════════════════════════════════
-        // Right Panel - Basket
         basketItemsPanel = new JPanel();
         basketItemsPanel.setLayout(new BoxLayout(basketItemsPanel, BoxLayout.Y_AXIS));
         basketItemsPanel.setOpaque(false);
 
-        // Wrapper for alignment
         JPanel basketWrapper = new JPanel(new BorderLayout());
         basketWrapper.setOpaque(false);
         basketWrapper.add(basketItemsPanel, BorderLayout.NORTH);
@@ -311,7 +348,6 @@ public class FoodOrderingGUI extends JFrame {
         basketScroll.setBorder(BorderFactory.createEmptyBorder());
         basketScroll.setOpaque(false);
         basketScroll.getViewport().setOpaque(false);
-        // Faster scrolling
         basketScroll.getVerticalScrollBar().setUnitIncrement(16);
 
         JPanel basketContent = new JPanel(new BorderLayout(0, 10));
@@ -323,7 +359,6 @@ public class FoodOrderingGUI extends JFrame {
         basketContent.add(itemCountLabel, BorderLayout.NORTH);
         basketContent.add(basketScroll, BorderLayout.CENTER);
 
-        // Total panel - now with theme support
         totalPanel = new JPanel(new BorderLayout());
         totalPanel.setBorder(BorderFactory.createEmptyBorder(12, 10, 12, 10));
 
@@ -337,7 +372,6 @@ public class FoodOrderingGUI extends JFrame {
         totalPanel.add(totalTextLabel, BorderLayout.WEST);
         totalPanel.add(totalLabel, BorderLayout.EAST);
 
-        // Checkout Container (Total + Place Order Button)
         JPanel checkoutContainer = new JPanel();
         checkoutContainer.setLayout(new BoxLayout(checkoutContainer, BoxLayout.Y_AXIS));
         checkoutContainer.setOpaque(false);
@@ -353,8 +387,6 @@ public class FoodOrderingGUI extends JFrame {
 
         basketContent.add(checkoutContainer, BorderLayout.SOUTH);
 
-        // History button for Basket Panel
-        // History button for Basket Panel
         JButton historyBtn = new JButton("History") {
             private boolean hover = false;
             {
@@ -435,11 +467,9 @@ public class FoodOrderingGUI extends JFrame {
     }
 
     private void applyTheme() {
-        // Main frame
         getContentPane().setBackground(getBgColor());
         mainContent.setBackground(getBgColor());
 
-        // Update lists
         restaurantList.setBackground(getCardColor());
         restaurantList.setSelectionBackground(getSelectionBg());
         restaurantList.setSelectionForeground(isNightMode ? APPETIZING_ORANGE : APPETIZING_ORANGE);
@@ -447,30 +477,20 @@ public class FoodOrderingGUI extends JFrame {
         foodList.setBackground(getBgColor());
         foodList.setSelectionBackground(getFoodSelectionBg());
 
-        foodList.setSelectionBackground(getFoodSelectionBg());
-
-        // Refresh basket items with new theme colors
         updateBasketDisplay();
 
-        // Total panel - now properly themed
         totalPanel.setBackground(getTotalBgColor());
         totalTextLabel.setForeground(getTextColor());
         itemCountLabel.setForeground(getTextSecondaryColor());
 
-        // Bottom panel
         bottomPanel.setBackground(getCardColor());
 
-        // Repaint header for gradient update
         headerPanel.repaint();
 
-        // Force repaint all
         SwingUtilities.updateComponentTreeUI(this);
         repaint();
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // HELPER: Create styled section panel
-    // ═══════════════════════════════════════════════════════════════════
     private JPanel createSectionPanel(String title, JComponent content, JComponent headerAction) {
         JPanel panel = new JPanel(new BorderLayout()) {
             @Override
@@ -494,7 +514,6 @@ public class FoodOrderingGUI extends JFrame {
 
         panel.add(titleLabel, BorderLayout.NORTH);
 
-        // Custom header layout if action exists
         if (headerAction != null) {
             JPanel header = new JPanel(new BorderLayout());
             header.setOpaque(false);
@@ -510,9 +529,6 @@ public class FoodOrderingGUI extends JFrame {
         return panel;
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // HELPER: Create quantity +/- button
-    // ═══════════════════════════════════════════════════════════════════
     private JButton createQuantityButton(String text) {
         JButton button = new JButton(text) {
             private boolean hover = false;
@@ -556,9 +572,6 @@ public class FoodOrderingGUI extends JFrame {
         return button;
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // HELPER: Create styled button
-    // ═══════════════════════════════════════════════════════════════════
     private JButton createStyledButton(String text, Color bgColor, Color fgColor) {
         JButton button = new JButton(text) {
             private boolean hover = false;
@@ -753,7 +766,7 @@ public class FoodOrderingGUI extends JFrame {
 
         for (BasketItem item : basketItems) {
             basketItemsPanel.add(createBasketItemPanel(item));
-            basketItemsPanel.add(Box.createVerticalStrut(8)); // Spacing between items
+            basketItemsPanel.add(Box.createVerticalStrut(8));
             total += item.getTotalPrice();
         }
 
@@ -773,7 +786,6 @@ public class FoodOrderingGUI extends JFrame {
                 BorderFactory.createEmptyBorder(8, 8, 8, 8)));
         panel.setMaximumSize(new Dimension(Short.MAX_VALUE, 85));
 
-        // Name and Price
         JLabel nameLabel = new JLabel(item.getFood().getName());
         nameLabel.setFont(new Font(getSansSerifFont(), Font.BOLD, 14));
         nameLabel.setForeground(getTextColor());
@@ -787,7 +799,6 @@ public class FoodOrderingGUI extends JFrame {
         topRow.add(nameLabel, BorderLayout.CENTER);
         topRow.add(priceLabel, BorderLayout.EAST);
 
-        // Controls
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
         controls.setOpaque(false);
 
@@ -840,7 +851,7 @@ public class FoodOrderingGUI extends JFrame {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // ORDER OPERATIONS
+    // ORDER OPERATIONS - FIXED to handle boolean return
     // ═══════════════════════════════════════════════════════════════════
     private void placeOrder() {
         if (basketItems.isEmpty()) {
@@ -867,19 +878,34 @@ public class FoodOrderingGUI extends JFrame {
                 JOptionPane.YES_NO_OPTION);
 
         if (confirm == JOptionPane.YES_OPTION) {
-            DatabaseManager.placeOrder(basketItems, total);
+            // Show processing indicator
+            setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
 
-            // Deduct from wallet
-            walletBalance -= total;
-            walletLabel.setText(String.format("Wallet: $%.2f", walletBalance));
+            // Split order by restaurant
+            int ordersCreated = DatabaseManager.placeOrdersSplitByRestaurant(basketItems, total);
 
-            JOptionPane.showMessageDialog(this,
-                    String.format("Order placed! Remaining balance: $%.2f", walletBalance),
-                    "Order Placed",
-                    JOptionPane.INFORMATION_MESSAGE);
+            setCursor(Cursor.getDefaultCursor());
 
-            basketItems.clear();
-            updateBasketDisplay();
+            if (ordersCreated > 0) {
+                // Deduct from wallet
+                walletBalance -= total;
+                walletLabel.setText(String.format("Wallet: $%.2f", walletBalance));
+
+                String message = ordersCreated == 1
+                        ? String.format("Order placed successfully!\nRemaining balance: $%.2f", walletBalance)
+                        : String.format("%d orders placed (split by restaurant)!\nRemaining balance: $%.2f",
+                                ordersCreated, walletBalance);
+
+                JOptionPane.showMessageDialog(this, message, "Order Placed", JOptionPane.INFORMATION_MESSAGE);
+
+                basketItems.clear();
+                updateBasketDisplay();
+            } else {
+                JOptionPane.showMessageDialog(this,
+                        "Failed to place order. Please try again.",
+                        "Order Failed",
+                        JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
@@ -889,7 +915,6 @@ public class FoodOrderingGUI extends JFrame {
         historyDialog.setLocationRelativeTo(this);
         historyDialog.setLayout(new BorderLayout());
 
-        // Table Data
         String[] columnNames = { "Order ID", "Date", "Items", "Total" };
         List<Order> orders = DatabaseManager.getOrderHistory();
 
@@ -914,12 +939,10 @@ public class FoodOrderingGUI extends JFrame {
         table.setFont(FOOD_DETAIL_FONT);
         table.setRowHeight(30);
 
-        // Header styling
         table.getTableHeader().setFont(BUTTON_FONT);
         table.getTableHeader().setBackground(isNightMode ? NIGHT_CARD : LIGHT_CARD);
         table.getTableHeader().setForeground(getTextColor());
 
-        // Table styling
         table.setBackground(isNightMode ? NIGHT_BG : LIGHT_BG);
         table.setForeground(getTextColor());
 
@@ -956,9 +979,6 @@ public class FoodOrderingGUI extends JFrame {
         historyDialog.setVisible(true);
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // DELETE OPERATIONS
-    // ═══════════════════════════════════════════════════════════════════
     private void deleteRestaurant() {
         Restaurant selectedRestaurant = restaurantList.getSelectedValue();
         if (selectedRestaurant == null) {

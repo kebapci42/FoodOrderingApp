@@ -7,6 +7,8 @@ import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.io.PrintWriter;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.net.Socket;
 
 public class DatabaseManager {
@@ -69,8 +71,39 @@ public class DatabaseManager {
                     + ");";
             stmt.execute(sqlOrderItems);
 
+            // ═══════════════════════════════════════════════════════════════
+            // SCHEMA MIGRATION: Add restaurant_id column if missing
+            // ═══════════════════════════════════════════════════════════════
+            migrateSchema(conn);
+
         } catch (SQLException e) {
             System.out.println(e.getMessage());
+        }
+    }
+
+    /**
+     * Migrate schema to add missing columns
+     */
+    private static void migrateSchema(Connection conn) {
+        try {
+            // Check if restaurant_id column exists in orders table
+            boolean hasRestaurantId = false;
+            ResultSet rs = conn.getMetaData().getColumns(null, null, "orders", "restaurant_id");
+            if (rs.next()) {
+                hasRestaurantId = true;
+            }
+            rs.close();
+
+            if (!hasRestaurantId) {
+                System.out.println("Migrating schema: Adding restaurant_id to orders table...");
+                Statement stmt = conn.createStatement();
+                stmt.execute("ALTER TABLE orders ADD COLUMN restaurant_id integer");
+                stmt.close();
+                System.out.println("Schema migration complete.");
+            }
+        } catch (SQLException e) {
+            // Column might already exist or other issue
+            System.out.println("Schema migration note: " + e.getMessage());
         }
     }
 
@@ -109,7 +142,6 @@ public class DatabaseManager {
         }
     }
 
-    // NEW: Update food item
     public static void updateFood(int foodId, String name, String type, double price) {
         String sql = "UPDATE food SET name = ?, type = ?, price = ? WHERE id = ?";
 
@@ -144,7 +176,6 @@ public class DatabaseManager {
         return restaurants;
     }
 
-    // NEW: Get restaurant by ID
     public static Restaurant getRestaurantById(int id) {
         String sql = "SELECT id, name FROM restaurants WHERE id = ?";
         Restaurant restaurant = null;
@@ -218,14 +249,78 @@ public class DatabaseManager {
         }
     }
 
-    // MODIFIED: placeOrder now tracks restaurant_id
-    public static void placeOrder(List<BasketItem> items, double totalAmount) {
+    // ═══════════════════════════════════════════════════════════════════
+    // PLACE ORDER - Now uses server for database operations
+    // ═══════════════════════════════════════════════════════════════════
+    public static boolean placeOrder(List<BasketItem> items, double totalAmount) {
         if (items.isEmpty())
-            return;
+            return false;
 
-        // Determine restaurant_id from first item
+        // Get restaurant_id from first item
         int restaurantId = getRestaurantIdForFood(items.get(0).getFood().getName());
 
+        // Try to send order to server first
+        String serverResponse = sendOrderToServer(items, totalAmount, restaurantId);
+
+        if (serverResponse != null && serverResponse.startsWith("OK")) {
+            System.out.println("✓ Order processed by server");
+            return true;
+        }
+
+        // Fallback: Store locally if server unavailable
+        System.out.println("⚠ Server unavailable, storing order locally...");
+        return placeOrderLocally(items, totalAmount, restaurantId);
+    }
+
+    /**
+     * Split basket items by restaurant and create separate orders
+     * Returns number of orders created, or -1 on failure
+     */
+    public static int placeOrdersSplitByRestaurant(List<BasketItem> items, double totalAmount) {
+        if (items.isEmpty())
+            return -1;
+
+        // Group items by restaurant
+        java.util.Map<Integer, List<BasketItem>> itemsByRestaurant = new java.util.HashMap<>();
+
+        for (BasketItem item : items) {
+            int restaurantId = getRestaurantIdForFood(item.getFood().getName());
+            itemsByRestaurant.computeIfAbsent(restaurantId, k -> new ArrayList<>()).add(item);
+        }
+
+        int ordersCreated = 0;
+
+        for (java.util.Map.Entry<Integer, List<BasketItem>> entry : itemsByRestaurant.entrySet()) {
+            int restaurantId = entry.getKey();
+            List<BasketItem> restaurantItems = entry.getValue();
+
+            // Calculate subtotal for this restaurant's items
+            double subtotal = restaurantItems.stream()
+                    .mapToDouble(BasketItem::getTotalPrice)
+                    .sum();
+
+            // Try server first, then fallback to local
+            String serverResponse = sendOrderToServer(restaurantItems, subtotal, restaurantId);
+
+            boolean success;
+            if (serverResponse != null && serverResponse.startsWith("OK")) {
+                success = true;
+            } else {
+                success = placeOrderLocally(restaurantItems, subtotal, restaurantId);
+            }
+
+            if (success) {
+                ordersCreated++;
+            }
+        }
+
+        return ordersCreated;
+    }
+
+    /**
+     * Store order in local database (fallback when server unavailable)
+     */
+    private static boolean placeOrderLocally(List<BasketItem> items, double totalAmount, int restaurantId) {
         String insertOrder = "INSERT INTO orders(date, total_amount, restaurant_id) VALUES(?,?,?)";
         String insertOrderItem = "INSERT INTO order_items(order_id, food_name, quantity, price) VALUES(?,?,?,?)";
 
@@ -265,14 +360,14 @@ public class DatabaseManager {
                     pstmtItem.executeBatch();
                 }
                 conn.commit();
-                sendOrderToServer(items, totalAmount);
-
+                return true;
             } else {
                 conn.rollback();
+                return false;
             }
 
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
+            System.out.println("SQL Error: " + e.getMessage());
             if (conn != null) {
                 try {
                     conn.rollback();
@@ -280,6 +375,7 @@ public class DatabaseManager {
                     System.out.println(ex.getMessage());
                 }
             }
+            return false;
         } finally {
             if (conn != null) {
                 try {
@@ -292,7 +388,6 @@ public class DatabaseManager {
         }
     }
 
-    // NEW: Get restaurant_id for a food item by name
     private static int getRestaurantIdForFood(String foodName) {
         String sql = "SELECT restaurant_id FROM food WHERE name = ? LIMIT 1";
         int restaurantId = -1;
@@ -399,7 +494,6 @@ public class DatabaseManager {
         return sb.toString();
     }
 
-    // NEW: Get orders for a specific restaurant
     public static List<RestaurantOrder> getOrdersForRestaurant(int restaurantId) {
         List<RestaurantOrder> orders = new ArrayList<>();
         String sql = "SELECT id, date, total_amount FROM orders WHERE restaurant_id = ? ORDER BY date DESC";
@@ -441,25 +535,38 @@ public class DatabaseManager {
         }
     }
 
-    private static void sendOrderToServer(List<BasketItem> items, double totalAmount) {
-        String serverIP = "127.0.0.1"; // localhost
+    // ═══════════════════════════════════════════════════════════════════
+    // SERVER COMMUNICATION - Enhanced with response handling
+    // ═══════════════════════════════════════════════════════════════════
+    private static String sendOrderToServer(List<BasketItem> items, double totalAmount, int restaurantId) {
+        String serverIP = "127.0.0.1";
         int port = 6000;
 
         try (Socket socket = new Socket(serverIP, port);
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
-            out.println("Total Amount: $" + totalAmount);
+            // Send order data in a parseable format
+            out.println("ORDER");
+            out.println("RESTAURANT_ID:" + restaurantId);
+            out.println("TOTAL:" + totalAmount);
+            out.println("ITEMS:" + items.size());
 
             for (BasketItem item : items) {
-                out.println(
-                        item.getFood().getName() +
-                                " x" + item.getQuantity() +
-                                " ($" + item.getTotalPrice() + ")");
+                out.println("ITEM:" + item.getFood().getName() + "|" +
+                        item.getQuantity() + "|" +
+                        item.getFood().getPrice());
             }
+            out.println("END_ORDER");
+
+            // Wait for server response
+            socket.setSoTimeout(5000); // 5 second timeout
+            String response = in.readLine();
+            return response;
 
         } catch (Exception e) {
-            System.out.println("⚠ Could not send order to server");
+            System.out.println("⚠ Could not send order to server: " + e.getMessage());
+            return null;
         }
     }
-
 }

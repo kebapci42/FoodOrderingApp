@@ -99,6 +99,8 @@ public class RestaurantGUI extends JFrame {
     private JPanel ordersPanel;
     private JLabel orderCountLabel;
 
+    private Timer autoRefreshTimer;
+
     public RestaurantGUI() {
         setTitle("Delicious Bites - Restaurant Manager");
         setSize(1100, 700);
@@ -116,6 +118,19 @@ public class RestaurantGUI extends JFrame {
         loadMenu();
         loadOrders();
         applyTheme();
+    }
+
+    private void startAutoRefresh() {
+        autoRefreshTimer = new Timer(10000, e -> loadOrders()); // 10 seconds
+        autoRefreshTimer.start();
+    }
+
+    @Override
+    public void dispose() {
+        if (autoRefreshTimer != null) {
+            autoRefreshTimer.stop();
+        }
+        super.dispose();
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -320,18 +335,14 @@ public class RestaurantGUI extends JFrame {
         ordersContent.add(orderCountLabel, BorderLayout.NORTH);
         ordersContent.add(ordersScroll, BorderLayout.CENTER);
 
-        // Refresh button
-        JButton refreshBtn = createStyledButton("Refresh Orders", OLIVE_GREEN, Color.WHITE);
-        refreshBtn.setMaximumSize(new Dimension(Short.MAX_VALUE, 40));
-        refreshBtn.addActionListener(e -> loadOrders());
-
-        ordersContent.add(refreshBtn, BorderLayout.SOUTH);
-
         rightPanel = createSectionPanel("Incoming Orders", ordersContent, null);
         rightPanel.setPreferredSize(new Dimension(380, 0));
         mainContent.add(rightPanel, BorderLayout.EAST);
 
         add(mainContent, BorderLayout.CENTER);
+
+        // Start timer
+        startAutoRefresh();
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -508,8 +519,11 @@ public class RestaurantGUI extends JFrame {
         ordersPanel.removeAll();
         List<RestaurantOrder> orders = DatabaseManager.getOrdersForRestaurant(currentRestaurant.getId());
 
-        for (RestaurantOrder order : orders) {
-            ordersPanel.add(createOrderCard(order));
+        int totalOrders = orders.size();
+        for (int i = 0; i < orders.size(); i++) {
+            // orders are DESC (newest first), so reverse the numbering
+            int displayNumber = totalOrders - i;
+            ordersPanel.add(createOrderCard(orders.get(i), displayNumber));
             ordersPanel.add(Box.createVerticalStrut(10));
         }
 
@@ -518,7 +532,7 @@ public class RestaurantGUI extends JFrame {
         ordersPanel.repaint();
     }
 
-    private JPanel createOrderCard(RestaurantOrder order) {
+    private JPanel createOrderCard(RestaurantOrder order, int displayNumber) {
         JPanel card = new JPanel(new BorderLayout(10, 8));
         card.setOpaque(true);
         card.setBackground(getCardColor());
@@ -531,7 +545,7 @@ public class RestaurantGUI extends JFrame {
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setOpaque(false);
 
-        JLabel orderIdLabel = new JLabel("Order #" + order.getOrderId());
+        JLabel orderIdLabel = new JLabel("Order #" + displayNumber);
         orderIdLabel.setFont(new Font(getSansSerifFont(), Font.BOLD, 14));
         orderIdLabel.setForeground(APPETIZING_ORANGE);
 
